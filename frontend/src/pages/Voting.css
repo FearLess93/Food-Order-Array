@@ -1,0 +1,156 @@
+.voting-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.status-text {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.status-text.closed {
+  color: #999;
+}
+
+.status-text.voted {
+  color: #4CAF50;
+}
+
+.winner-card {
+  background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.winner-card h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.winner-card h3 {
+  font-size: 2rem;
+  color: #FF6B35;
+  margin-bottom: 0.5rem;
+}
+
+.winner-card p {
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.restaurants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.restaurant-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.restaurant-card:not(.disabled):hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.restaurant-card.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.restaurant-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  background-color: #f0f0f0;
+}
+
+.restaurant-info {
+  padding: 1.5rem;
+}
+
+.restaurant-info h3 {
+  font-size: 1.25rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.restaurant-info p {
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.vote-count {
+  display: inline-block;
+  background-color: #FF6B35;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.voted-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background-color: #4CAF50;
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.loading {
+  text-align: center;
+  padding: 4rem;
+  font-size: 1.25rem;
+  color: #666;
+}
+
+.empty-text {
+  text-align: center;
+  padding: 4rem;
+  color: #999;
+  font-size: 1.125rem;
+}
+
+.btn-primary {
+  padding: 0.75rem 2rem;
+  background-color: #FF6B35;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: #e55a2b;
+}
