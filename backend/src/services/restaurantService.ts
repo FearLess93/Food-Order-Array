@@ -1,74 +1,59 @@
-import { RestaurantModel } from '../models/Restaurant';
-import { Restaurant } from '../types';
-import { CustomError } from '../middleware/errorHandler';
+import { Restaurant, MenuItem } from '@prisma/client';
+import { RestaurantModel, RestaurantWithMenu } from '../models/Restaurant';
+import { MenuItemModel } from '../models/MenuItem';
 
 export class RestaurantService {
-  static async createRestaurant(
-    name: string,
-    cuisine: string,
-    imageUrl?: string
-  ): Promise<Restaurant> {
-    if (!name || !cuisine) {
-      throw new CustomError('Name and cuisine are required', 400, 'MISSING_FIELDS');
-    }
-
-    return await RestaurantModel.create(name, cuisine, imageUrl);
+  /**
+   * Get all restaurants
+   */
+  static async getAllRestaurants(): Promise<Restaurant[]> {
+    return RestaurantModel.findAll();
   }
 
-  static async getRestaurant(id: string): Promise<Restaurant> {
+  /**
+   * Get restaurant by ID
+   */
+  static async getRestaurantById(id: string): Promise<Restaurant> {
     const restaurant = await RestaurantModel.findById(id);
-    
     if (!restaurant) {
-      throw new CustomError('Restaurant not found', 404, 'RESTAURANT_NOT_FOUND');
+      throw new Error('Restaurant not found');
     }
-
     return restaurant;
   }
 
-  static async getAllRestaurants(activeOnly: boolean = false): Promise<Restaurant[]> {
-    return await RestaurantModel.findAll(activeOnly);
+  /**
+   * Get restaurant menu
+   */
+  static async getRestaurantMenu(
+    restaurantId: string,
+    filters?: {
+      search?: string;
+      tags?: string[];
+    }
+  ): Promise<MenuItem[]> {
+    // Verify restaurant exists
+    await this.getRestaurantById(restaurantId);
+
+    // Apply filters
+    if (filters?.search) {
+      return MenuItemModel.search(restaurantId, filters.search);
+    }
+
+    if (filters?.tags && filters.tags.length > 0) {
+      return MenuItemModel.findByTags(restaurantId, filters.tags);
+    }
+
+    return MenuItemModel.findByRestaurantId(restaurantId);
   }
 
-  static async updateRestaurant(
-    id: string,
-    updates: Partial<{ name: string; cuisine: string; imageUrl: string; isActive: boolean }>
-  ): Promise<Restaurant> {
-    const restaurant = await RestaurantModel.findById(id);
-    
-    if (!restaurant) {
-      throw new CustomError('Restaurant not found', 404, 'RESTAURANT_NOT_FOUND');
+  /**
+   * Get menu item by ID
+   */
+  static async getMenuItemById(id: string): Promise<MenuItem> {
+    const menuItem = await MenuItemModel.findById(id);
+    if (!menuItem) {
+      throw new Error('Menu item not found');
     }
-
-    const updated = await RestaurantModel.update(id, updates);
-    
-    if (!updated) {
-      throw new CustomError('Failed to update restaurant', 500, 'UPDATE_FAILED');
-    }
-
-    return updated;
-  }
-
-  static async deleteRestaurant(id: string): Promise<void> {
-    const restaurant = await RestaurantModel.findById(id);
-    
-    if (!restaurant) {
-      throw new CustomError('Restaurant not found', 404, 'RESTAURANT_NOT_FOUND');
-    }
-
-    const deleted = await RestaurantModel.delete(id);
-    
-    if (!deleted) {
-      throw new CustomError('Failed to delete restaurant', 500, 'DELETE_FAILED');
-    }
-  }
-
-  static async toggleRestaurantStatus(id: string): Promise<Restaurant> {
-    const restaurant = await RestaurantModel.findById(id);
-    
-    if (!restaurant) {
-      throw new CustomError('Restaurant not found', 404, 'RESTAURANT_NOT_FOUND');
-    }
-
-    return await this.updateRestaurant(id, { isActive: !restaurant.isActive });
+    return menuItem;
   }
 }

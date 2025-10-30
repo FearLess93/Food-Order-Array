@@ -1,240 +1,235 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/authService';
-import { UserModel } from '../models/User';
-import { AuthRequest } from '../middleware/auth';
+import { body, validationResult } from 'express-validator';
 
 export class AuthController {
+  /**
+   * Register a new user
+   * POST /api/auth/register
+   */
   static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email, password, name } = req.body;
-
-      if (!email || !password || !name) {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
         res.status(400).json({
           success: false,
           error: {
-            code: 'MISSING_FIELDS',
-            message: 'Email, password, and name are required',
+            code: 'INVALID_INPUT',
+            message: 'Validation failed',
+            details: errors.array(),
           },
-          timestamp: new Date().toISOString(),
         });
         return;
       }
 
-      const result = await AuthService.register(email, password, name);
+      const { name, email, password } = req.body;
+
+      const result = await AuthService.register({ name, email, password });
+
+      // Set HTTP-only cookie with JWT token
+      res.cookie('token', result.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      });
 
       res.status(201).json({
         success: true,
         data: {
           user: result.user,
-          message: result.message,
+          token: result.token,
         },
-        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       next(error);
     }
   }
 
+  /**
+   * Login user
+   * POST /api/auth/login
+   */
   static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
         res.status(400).json({
           success: false,
           error: {
-            code: 'MISSING_FIELDS',
-            message: 'Email and password are required',
+            code: 'INVALID_INPUT',
+            message: 'Validation failed',
+            details: errors.array(),
           },
-          timestamp: new Date().toISOString(),
         });
         return;
       }
 
-      const result = await AuthService.login(email, password);
+      const { email, password } = req.body;
+
+      const result = await AuthService.login({ email, password });
+
+      // Set HTTP-only cookie with JWT token
+      res.cookie('token', result.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      });
 
       res.status(200).json({
         success: true,
         data: {
           user: result.user,
           token: result.token,
-          refreshToken: result.refreshToken,
         },
-        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       next(error);
     }
   }
 
-  static async verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
+  /**
+   * Get current user
+   * GET /api/auth/me
+   */
+  static async getCurrentUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email, code } = req.body;
+      const userId = (req as any).user?.userId;
 
-      if (!email || !code) {
-        res.status(400).json({
-          success: false,
-          error: {
-            code: 'MISSING_FIELDS',
-            message: 'Email and verification code are required',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      // Find user by email
-      const user = await UserModel.findByEmail(email);
-      if (!user) {
-        res.status(404).json({
-          success: false,
-          error: {
-            code: 'USER_NOT_FOUND',
-            message: 'User not found',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const result = await AuthService.verifyEmail(user.id, code);
-
-      res.status(200).json({
-        success: true,
-        data: result,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async resendVerificationCode(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { email } = req.body;
-
-      if (!email) {
-        res.status(400).json({
-          success: false,
-          error: {
-            code: 'MISSING_FIELDS',
-            message: 'Email is required',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const result = await AuthService.resendVerificationCode(email);
-
-      res.status(200).json({
-        success: true,
-        data: result,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async refreshToken(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { refreshToken } = req.body;
-
-      if (!refreshToken) {
-        res.status(400).json({
-          success: false,
-          error: {
-            code: 'MISSING_FIELDS',
-            message: 'Refresh token is required',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const decoded = AuthService.verifyRefreshToken(refreshToken);
-      const user = await UserModel.findById(decoded.userId);
-
-      if (!user) {
-        res.status(404).json({
-          success: false,
-          error: {
-            code: 'USER_NOT_FOUND',
-            message: 'User not found',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const newToken = AuthService.generateToken(user);
-      const newRefreshToken = AuthService.generateRefreshToken(user);
-
-      res.status(200).json({
-        success: true,
-        data: {
-          token: newToken,
-          refreshToken: newRefreshToken,
-        },
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async getProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user) {
+      if (!userId) {
         res.status(401).json({
           success: false,
           error: {
             code: 'UNAUTHORIZED',
-            message: 'Authentication required',
+            message: 'Not authenticated',
           },
-          timestamp: new Date().toISOString(),
         });
         return;
       }
 
-      const user = await UserModel.findById(req.user.userId);
-
-      if (!user) {
-        res.status(404).json({
-          success: false,
-          error: {
-            code: 'USER_NOT_FOUND',
-            message: 'User not found',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      const user = await AuthService.getUserById(userId);
 
       res.status(200).json({
         success: true,
         data: { user },
-        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       next(error);
     }
   }
 
-  static async logout(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  /**
+   * Logout user
+   * POST /api/auth/logout
+   */
+  static async logout(req: Request, res: Response): Promise<void> {
+    res.clearCookie('token');
+    res.status(200).json({
+      success: true,
+      message: 'Logged out successfully',
+    });
+  }
+
+  /**
+   * Request password reset
+   * POST /api/auth/forgot-password
+   */
+  static async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // In a stateless JWT system, logout is handled client-side by removing the token
-      // Here we just acknowledge the logout request
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'Validation failed',
+            details: errors.array(),
+          },
+        });
+        return;
+      }
+
+      const { email } = req.body;
+
+      await AuthService.requestPasswordReset(email);
+
+      // Always return success to prevent email enumeration
       res.status(200).json({
         success: true,
-        data: {
-          message: 'Logged out successfully',
-        },
-        timestamp: new Date().toISOString(),
+        message: 'If the email exists, a password reset link has been sent',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Reset password with token
+   * POST /api/auth/reset-password
+   */
+  static async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'Validation failed',
+            details: errors.array(),
+          },
+        });
+        return;
+      }
+
+      const { token, password } = req.body;
+
+      await AuthService.resetPassword(token, password);
+
+      res.status(200).json({
+        success: true,
+        message: 'Password reset successfully',
       });
     } catch (error) {
       next(error);
     }
   }
 }
+
+// Validation middleware
+export const registerValidation = [
+  body('name').trim().notEmpty().withMessage('Name is required'),
+  body('email')
+    .trim()
+    .isEmail()
+    .withMessage('Valid email is required')
+    .normalizeEmail(),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long'),
+];
+
+export const loginValidation = [
+  body('email')
+    .trim()
+    .isEmail()
+    .withMessage('Valid email is required')
+    .normalizeEmail(),
+  body('password').notEmpty().withMessage('Password is required'),
+];
+
+export const forgotPasswordValidation = [
+  body('email')
+    .trim()
+    .isEmail()
+    .withMessage('Valid email is required')
+    .normalizeEmail(),
+];
+
+export const resetPasswordValidation = [
+  body('token').notEmpty().withMessage('Reset token is required'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long'),
+];

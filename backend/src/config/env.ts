@@ -2,54 +2,61 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-export const config = {
-  port: parseInt(process.env.PORT || '3000'),
-  nodeEnv: process.env.NODE_ENV || 'development',
-  
-  database: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    name: process.env.DB_NAME || 'array_eats',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || '',
-  },
-  
+interface Config {
+  nodeEnv: string;
+  port: number;
+  databaseUrl: string;
   jwt: {
-    secret: process.env.JWT_SECRET || 'change_this_secret',
-    expiresIn: process.env.JWT_EXPIRES_IN || '1h',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'change_this_refresh_secret',
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+    secret: string;
+    expiresIn: string;
+  };
+  cors: {
+    origin: string;
+  };
+  email: {
+    host: string;
+    port: number;
+    user: string;
+    password: string;
+    from: string;
+  };
+  rateLimit: {
+    windowMs: number;
+    maxRequests: number;
+  };
+}
+
+const config: Config = {
+  nodeEnv: process.env.NODE_ENV || 'development',
+  port: parseInt(process.env.PORT || '4000', 10),
+  databaseUrl: process.env.DATABASE_URL || '',
+  jwt: {
+    secret: process.env.JWT_SECRET || 'change-this-secret-in-production',
+    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
   },
-  
+  cors: {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  },
   email: {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.EMAIL_PORT || '587'),
+    port: parseInt(process.env.EMAIL_PORT || '587', 10),
     user: process.env.EMAIL_USER || '',
     password: process.env.EMAIL_PASSWORD || '',
-    from: process.env.EMAIL_FROM || 'noreply@array.com',
+    from: process.env.EMAIL_FROM || 'Array Food Ordering <noreply@array.world>',
   },
-  
-  company: {
-    allowedEmailDomain: process.env.ALLOWED_EMAIL_DOMAIN || 'array.com',
-  },
-  
   rateLimit: {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
-    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
-  },
-  
-  talabat: {
-    apiKey: process.env.TALABAT_API_KEY || '',
-    apiUrl: process.env.TALABAT_API_URL || 'https://api.talabat.com/v1',
-    enabled: process.env.TALABAT_ENABLED === 'true',
-  },
-  
-  companyAddress: {
-    street: process.env.COMPANY_DELIVERY_STREET || '',
-    building: process.env.COMPANY_DELIVERY_BUILDING || '',
-    floor: process.env.COMPANY_DELIVERY_FLOOR || '',
-    city: process.env.COMPANY_DELIVERY_CITY || 'Manama',
-    area: process.env.COMPANY_DELIVERY_AREA || '',
-    phone: process.env.COMPANY_DELIVERY_PHONE || '',
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes
+    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
   },
 };
+
+// Validate required environment variables
+if (!config.databaseUrl) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
+
+if (config.nodeEnv === 'production' && config.jwt.secret === 'change-this-secret-in-production') {
+  throw new Error('JWT_SECRET must be set in production');
+}
+
+export default config;

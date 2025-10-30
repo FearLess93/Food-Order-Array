@@ -1,11 +1,14 @@
 import app from './app';
-import { config } from './config/env';
-import pool from './config/database';
+import config from './config/env';
+import { checkDatabaseConnection } from './config/database';
 
-const startServer = async () => {
+async function startServer() {
   try {
-    // Test database connection
-    await pool.query('SELECT NOW()');
+    // Check database connection
+    const isDbConnected = await checkDatabaseConnection();
+    if (!isDbConnected) {
+      throw new Error('Failed to connect to database');
+    }
     console.log('✓ Database connection established');
 
     // Start server
@@ -18,6 +21,6 @@ const startServer = async () => {
     console.error('Failed to start server:', error);
     process.exit(1);
   }
-};
+}
 
 startServer();

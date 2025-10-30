@@ -1,84 +1,60 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: array-eats-db
+  db:
+    image: postgres:15-alpine
+    container_name: arrayeats-db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: array_eats
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      POSTGRES_USER: arrayeats
+      POSTGRES_PASSWORD: arrayeats_password
+      POSTGRES_DB: arrayeats
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - array-eats-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U arrayeats']
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: array-eats-backend
+    container_name: arrayeats-backend
+    restart: unless-stopped
     environment:
+      DATABASE_URL: postgresql://arrayeats:arrayeats_password@db:5432/arrayeats
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
       NODE_ENV: production
-      PORT: 3000
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: array_eats
-      DB_USER: postgres
-      DB_PASSWORD: postgres123
-      JWT_SECRET: your_jwt_secret_change_in_production
-      JWT_REFRESH_SECRET: your_refresh_secret_change_in_production
-      ALLOWED_EMAIL_DOMAIN: array.com
-      EMAIL_HOST: smtp.gmail.com
-      EMAIL_PORT: 587
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
-      EMAIL_FROM: noreply@array.com
-      TALABAT_API_KEY: ${TALABAT_API_KEY}
-      TALABAT_API_URL: https://api.talabat.com/v1
-      TALABAT_ENABLED: false
+      PORT: 4000
     ports:
-      - "3000:3000"
+      - '4000:4000'
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
-    networks:
-      - array-eats-network
     volumes:
       - ./backend:/app
       - /app/node_modules
-    command: npm start
 
-  # Frontend Web App
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: array-eats-frontend
+    container_name: arrayeats-frontend
+    restart: unless-stopped
     environment:
-      VITE_API_URL: http://localhost:3000/api
+      VITE_API_URL: http://localhost:4000
+      VITE_WS_URL: ws://localhost:4000
     ports:
-      - "3001:3001"
+      - '3000:3000'
     depends_on:
       - backend
-    networks:
-      - array-eats-network
     volumes:
       - ./frontend:/app
       - /app/node_modules
-
-networks:
-  array-eats-network:
-    driver: bridge
 
 volumes:
   postgres_data:

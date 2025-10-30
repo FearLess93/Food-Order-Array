@@ -1,181 +1,189 @@
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { UserModel } from '../models/User';
-import { User } from '../types';
-import { config } from '../config/env';
-import { CustomError } from '../middleware/errorHandler';
-import { validateEmailDomain, validateEmail, validatePassword } from '../utils/validation';
-import { sendVerificationEmail, generateVerificationCode } from '../utils/email';
+import { User } from '@prisma/client';
+import { UserModel, SafeUser } from '../models/User';
+import { hashPassword, comparePassword, validatePasswordStrength } from '../utils/password';
+import { generateToken, JwtPayload, verifyToken } from '../utils/jwt';
 
-const SALT_ROUNDS = 10;
-const VERIFICATION_CODE_EXPIRY_MINUTES = 15;
+export interface RegisterInput {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  user: SafeUser;
+  token: string;
+}
 
 export class AuthService {
-  static async register(
-    email: string,
-    password: string,
-    name: string
-  ): Promise<{ user: User; message: string }> {
-    // Validate email format
-    if (!validateEmail(email)) {
-      throw new CustomError('Invalid email format', 400, 'INVALID_EMAIL');
-    }
+  /**
+   * Register a new user
+   * Validates @array.world email domain and password strength
+   */
+  static async register(input: RegisterInput): Promise<AuthResponse> {
+    const { name, email, password } = input;
 
     // Validate email domain
-    if (!validateEmailDomain(email)) {
-      throw new CustomError(
-        `Only ${config.company.allowedEmailDomain} email addresses are allowed`,
-        403,
-        'INVALID_EMAIL_DOMAIN'
-      );
+    if (!email.endsWith('@array.world')) {
+      throw new Error('Registration is restricted to @array.world email addresses');
     }
 
-    // Validate password
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.valid) {
-      throw new CustomError(
-        passwordValidation.message || 'Invalid password',
-        400,
-        'INVALID_PASSWORD'
-      );
+    // Check if email already exists
+    const existingUser = await UserModel.findByEmail(email);
+    if (existingUser) {
+      throw new Error('Email already registered');
     }
 
-    // Check if email is already taken
-    const emailTaken = await UserModel.isEmailTaken(email);
-    if (emailTaken) {
-      throw new CustomError('Email already registered', 409, 'EMAIL_ALREADY_EXISTS');
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      throw new Error(passwordValidation.errors.join(', '));
     }
 
     // Hash password
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const passwordHash = await hashPassword(password);
 
     // Create user
-    const user = await UserModel.create(email, passwordHash, name);
+    const user = await UserModel.create({
+      name,
+      email,
+      passwordHash,
+    });
 
-    // Generate and send verification code
-    const verificationCode = generateVerificationCode();
-    const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRY_MINUTES * 60 * 1000);
-    
-    await UserModel.updateVerificationCode(user.id, verificationCode, expiresAt);
-    await sendVerificationEmail(email, verificationCode);
+    // Generate JWT token
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+    });
 
     return {
-      user,
-      message: 'Registration successful. Please check your email for verification code.',
+      user: UserModel.toSafeUser(user),
+      token,
     };
   }
 
-  static async login(
-    email: string,
-    password: string
-  ): Promise<{ user: User; token: string; refreshToken: string }> {
-    // Find user by email
-    const userWithPassword = await UserModel.findByEmail(email);
-    if (!userWithPassword) {
-      throw new CustomError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
-    }
+  /**
+   * Login user with email and password
+   */
+  static async login(input: LoginInput): Promise<AuthResponse> {
+    const { email, password } = input;
 
-    // Check if email is verified
-    if (!userWithPassword.isVerified) {
-      throw new CustomError(
-        'Email not verified. Please verify your email first.',
-        403,
-        'EMAIL_NOT_VERIFIED'
-      );
+    // Find user by email
+    const user = await UserModel.findByEmail(email);
+    if (!user) {
+      throw new Error('Invalid credentials');
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, userWithPassword.passwordHash);
+    const isPasswordValid = await comparePassword(password, user.passwordHash);
     if (!isPasswordValid) {
-      throw new CustomError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
+      throw new Error('Invalid credentials');
     }
 
-    // Remove password hash from user object
-    const { passwordHash, ...user } = userWithPassword;
+    // Generate JWT token
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+    });
 
-    // Generate tokens
-    const token = this.generateToken(user);
-    const refreshToken = this.generateRefreshToken(user);
-
-    return { user, token, refreshToken };
+    return {
+      user: UserModel.toSafeUser(user),
+      token,
+    };
   }
 
-  static async verifyEmail(userId: string, code: string): Promise<{ message: string }> {
-    // Get verification code from database
-    const storedCode = await UserModel.getVerificationCode(userId);
+  /**
+   * Verify JWT token and return user
+   */
+  static async verifyToken(token: string): Promise<SafeUser> {
+    const payload = verifyToken(token);
     
-    if (!storedCode) {
-      throw new CustomError('No verification code found', 404, 'CODE_NOT_FOUND');
+    const user = await UserModel.findById(payload.userId);
+    if (!user) {
+      throw new Error('User not found');
     }
 
-    // Check if code has expired
-    if (new Date() > storedCode.expires) {
-      throw new CustomError('Verification code has expired', 400, 'CODE_EXPIRED');
-    }
-
-    // Verify code
-    if (storedCode.code !== code) {
-      throw new CustomError('Invalid verification code', 400, 'INVALID_CODE');
-    }
-
-    // Mark email as verified
-    await UserModel.verifyEmail(userId);
-
-    return { message: 'Email verified successfully' };
+    return UserModel.toSafeUser(user);
   }
 
-  static async resendVerificationCode(email: string): Promise<{ message: string }> {
-    const userWithPassword = await UserModel.findByEmail(email);
-    
-    if (!userWithPassword) {
-      throw new CustomError('User not found', 404, 'USER_NOT_FOUND');
+  /**
+   * Get user by ID
+   */
+  static async getUserById(userId: string): Promise<SafeUser> {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
     }
 
-    if (userWithPassword.isVerified) {
-      throw new CustomError('Email already verified', 400, 'ALREADY_VERIFIED');
+    return UserModel.toSafeUser(user);
+  }
+
+  /**
+   * Request password reset
+   * Generates a reset token and sends email
+   */
+  static async requestPasswordReset(email: string): Promise<void> {
+    const { PasswordResetTokenModel } = await import('../models/PasswordResetToken');
+    const emailService = (await import('./emailService')).default;
+    const { generatePasswordResetToken, hashResetToken } = await import('../utils/jwt');
+
+    // Find user by email
+    const user = await UserModel.findByEmail(email);
+    if (!user) {
+      // Don't reveal if email exists or not for security
+      return;
     }
 
-    // Generate and send new verification code
-    const verificationCode = generateVerificationCode();
-    const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRY_MINUTES * 60 * 1000);
-    
-    await UserModel.updateVerificationCode(userWithPassword.id, verificationCode, expiresAt);
-    await sendVerificationEmail(email, verificationCode);
+    // Generate reset token
+    const { token, expiresAt } = generatePasswordResetToken();
+    const hashedToken = hashResetToken(token);
 
-    return { message: 'Verification code sent successfully' };
+    // Store hashed token in database
+    await PasswordResetTokenModel.create(user.id, hashedToken, expiresAt);
+
+    // Send email with plain token
+    await emailService.sendPasswordResetEmail(email, token);
   }
 
-  static generateToken(user: User): string {
-    // @ts-ignore
-    return jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      config.jwt.secret,
-      { expiresIn: config.jwt.expiresIn }
-    );
-  }
+  /**
+   * Reset password with token
+   */
+  static async resetPassword(token: string, newPassword: string): Promise<void> {
+    const { PasswordResetTokenModel } = await import('../models/PasswordResetToken');
+    const { hashResetToken } = await import('../utils/jwt');
 
-  static generateRefreshToken(user: User): string {
-    // @ts-ignore
-    return jwt.sign(
-      { userId: user.id },
-      config.jwt.refreshSecret,
-      { expiresIn: config.jwt.refreshExpiresIn }
-    );
-  }
+    // Hash the token to compare with stored hash
+    const hashedToken = hashResetToken(token);
 
-  static verifyToken(token: string): { userId: string; email: string; role: string } {
-    try {
-      return jwt.verify(token, config.jwt.secret) as { userId: string; email: string; role: string };
-    } catch (error) {
-      throw new CustomError('Invalid or expired token', 401, 'INVALID_TOKEN');
+    // Find reset token
+    const resetToken = await PasswordResetTokenModel.findByToken(hashedToken);
+    if (!resetToken) {
+      throw new Error('Invalid or expired reset token');
     }
-  }
 
-  static verifyRefreshToken(token: string): { userId: string } {
-    try {
-      return jwt.verify(token, config.jwt.refreshSecret) as { userId: string };
-    } catch (error) {
-      throw new CustomError('Invalid or expired refresh token', 401, 'INVALID_REFRESH_TOKEN');
+    // Check if token is expired
+    if (resetToken.expiresAt < new Date()) {
+      await PasswordResetTokenModel.delete(resetToken.id);
+      throw new Error('Reset token has expired');
     }
+
+    // Validate new password
+    const passwordValidation = validatePasswordStrength(newPassword);
+    if (!passwordValidation.isValid) {
+      throw new Error(passwordValidation.errors.join(', '));
+    }
+
+    // Hash new password
+    const passwordHash = await hashPassword(newPassword);
+
+    // Update user password
+    await UserModel.update(resetToken.userId, { passwordHash });
+
+    // Delete used token
+    await PasswordResetTokenModel.delete(resetToken.id);
   }
 }

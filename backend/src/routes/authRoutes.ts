@@ -1,18 +1,36 @@
 import { Router } from 'express';
-import { AuthController } from '../controllers/authController';
+import {
+  AuthController,
+  registerValidation,
+  loginValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
+} from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
+import { authLimiter, passwordResetLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
-// Public routes
-router.post('/register', AuthController.register);
-router.post('/login', AuthController.login);
-router.post('/verify', AuthController.verifyEmail);
-router.post('/resend-code', AuthController.resendVerificationCode);
-router.post('/refresh', AuthController.refreshToken);
+// Public routes with rate limiting
+router.post('/register', authLimiter, registerValidation, AuthController.register);
+router.post('/login', authLimiter, loginValidation, AuthController.login);
+router.post('/logout', AuthController.logout);
+
+// Password reset routes
+router.post(
+  '/forgot-password',
+  passwordResetLimiter,
+  forgotPasswordValidation,
+  AuthController.forgotPassword
+);
+router.post(
+  '/reset-password',
+  passwordResetLimiter,
+  resetPasswordValidation,
+  AuthController.resetPassword
+);
 
 // Protected routes
-router.get('/profile', authenticate, AuthController.getProfile);
-router.post('/logout', authenticate, AuthController.logout);
+router.get('/me', authenticate, AuthController.getCurrentUser);
 
 export default router;

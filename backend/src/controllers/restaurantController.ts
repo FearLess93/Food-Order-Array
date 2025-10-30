@@ -1,102 +1,103 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { RestaurantService } from '../services/restaurantService';
-import { AuthRequest } from '../middleware/auth';
+import { query, validationResult } from 'express-validator';
 
 export class RestaurantController {
-  static async createRestaurant(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  /**
+   * Get all restaurants
+   * GET /api/restaurants
+   */
+  static async getAllRestaurants(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
-      const { name, cuisine, imageUrl } = req.body;
-
-      const restaurant = await RestaurantService.createRestaurant(name, cuisine, imageUrl);
-
-      res.status(201).json({
-        success: true,
-        data: { restaurant },
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async getRestaurant(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      const restaurant = await RestaurantService.getRestaurant(id);
+      const restaurants = await RestaurantService.getAllRestaurants();
 
       res.status(200).json({
         success: true,
-        data: { restaurant },
-        timestamp: new Date().toISOString(),
+        data: {
+          restaurants,
+          count: restaurants.length,
+        },
       });
     } catch (error) {
       next(error);
     }
   }
 
-  static async getAllRestaurants(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const activeOnly = req.query.active === 'true';
-
-      const restaurants = await RestaurantService.getAllRestaurants(activeOnly);
-
-      res.status(200).json({
-        success: true,
-        data: { restaurants, count: restaurants.length },
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async updateRestaurant(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  /**
+   * Get restaurant by ID
+   * GET /api/restaurants/:id
+   */
+  static async getRestaurantById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
-      const updates = req.body;
 
-      const restaurant = await RestaurantService.updateRestaurant(id, updates);
+      const restaurant = await RestaurantService.getRestaurantById(id);
 
       res.status(200).json({
         success: true,
         data: { restaurant },
-        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       next(error);
     }
   }
 
-  static async deleteRestaurant(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  /**
+   * Get restaurant menu
+   * GET /api/restaurants/:id/menu
+   */
+  static async getRestaurantMenu(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
-      const { id } = req.params;
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'Validation failed',
+            details: errors.array(),
+          },
+        });
+        return;
+      }
 
-      await RestaurantService.deleteRestaurant(id);
+      const { id } = req.params;
+      const { search, tags } = req.query;
+
+      const filters = {
+        search: search as string | undefined,
+        tags: tags ? (tags as string).split(',') : undefined,
+      };
+
+      const menuItems = await RestaurantService.getRestaurantMenu(id, filters);
 
       res.status(200).json({
         success: true,
-        data: { message: 'Restaurant deleted successfully' },
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async toggleRestaurantStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      const restaurant = await RestaurantService.toggleRestaurantStatus(id);
-
-      res.status(200).json({
-        success: true,
-        data: { restaurant },
-        timestamp: new Date().toISOString(),
+        data: {
+          menuItems,
+          count: menuItems.length,
+        },
       });
     } catch (error) {
       next(error);
     }
   }
 }
+
+// Validation middleware
+export const getMenuValidation = [
+  query('search').optional().isString().trim(),
+  query('tags').optional().isString(),
+];

@@ -1,81 +1,123 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthService } from '../services/authService';
-import { CustomError } from './errorHandler';
-import { UserModel } from '../models/User';
+import { verifyToken } from '../utils/jwt';
 
 export interface AuthRequest extends Request {
   user?: {
     userId: string;
     email: string;
-    role: string;
   };
 }
 
-export const authenticate = async (
+/**
+ * Authentication middleware
+ * Verifies JWT token from Authorization header or cookie
+ */
+export async function authenticate(
   req: AuthRequest,
   res: Response,
   next: NextFunction
-): Promise<void> => {
+): Promise<void> {
   try {
+    // Get token from Authorization header or cookie
+    let token: string | undefined;
+
     const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new CustomError('No token provided', 401, 'NO_TOKEN');
-    }
-
-    const token = authHeader.substring(7);
-    const decoded = AuthService.verifyToken(token);
-
-    // Verify user still exists
-    const user = await UserModel.findById(decoded.userId);
-    if (!user) {
-      throw new CustomError('User not found', 401, 'USER_NOT_FOUND');
-    }
-
-    if (!user.isVerified) {
-      throw new CustomError('Email not verified', 403, 'EMAIL_NOT_VERIFIED');
-    }
-
-    req.user = decoded;
-    next();
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const requireAdmin = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-): void => {
-  if (!req.user) {
-    throw new CustomError('Authentication required', 401, 'AUTHENTICATION_REQUIRED');
-  }
-
-  if (req.user.role !== 'admin') {
-    throw new CustomError('Admin access required', 403, 'ADMIN_ACCESS_REQUIRED');
-  }
-
-  next();
-};
-
-export const optionalAuth = async (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const authHeader = req.headers.authorization;
-
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      const decoded = AuthService.verifyToken(token);
-      req.user = decoded;
+      token = authHeader.substring(7);
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
     }
+
+    if (!token) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'NO_TOKEN',
+          message: 'No authentication token provided',
+        },
+      });
+      return;
+    }
+
+    // Verify token
+    const payload = verifyToken(token);
+
+    // Attach user info to request
+    req.user = {
+      userId: payload.userId,
+      email: payload.email,
+    };
 
     next();
   } catch (error) {
-    // Continue without authentication
+    if (error instanceof Error) {
+      if (error.message === 'Token has expired') {
+        res.status(401).json({
+          success: false,
+          error: {
+            code: 'TOKEN_EXPIRED',
+            message: 'Authentication token has expired',
+          },
+        });
+        return;
+      }
+
+      if (error.message === 'Invalid token') {
+        res.status(401).json({
+          success: false,
+          error: {
+            code: 'INVALID_TOKEN',
+            message: 'Invalid authentication token',
+          },
+        });
+        return;
+      }
+    }
+
+    res.status(401).json({
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication failed',
+      },
+    });
+  }
+}
+
+/**
+ * Optional authentication middleware
+ * Attaches user info if token is present, but doesn't require it
+ */
+export async function optionalAuth(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    // Get token from Authorization header or cookie
+    let token: string | undefined;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
+    }
+
+    if (token) {
+      try {
+        const payload = verifyToken(token);
+        req.user = {
+          userId: payload.userId,
+          email: payload.email,
+        };
+      } catch {
+        // Ignore token errors for optional auth
+      }
+    }
+
+    next();
+  } catch {
     next();
   }
-};
+}

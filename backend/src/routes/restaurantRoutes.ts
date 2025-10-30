@@ -1,17 +1,11 @@
 import { Router } from 'express';
-import { RestaurantController } from '../controllers/restaurantController';
-import { authenticate, requireAdmin } from '../middleware/auth';
+import { RestaurantController, getMenuValidation } from '../controllers/restaurantController';
 
 const router = Router();
 
-// Public routes (authenticated users)
-router.get('/', authenticate, RestaurantController.getAllRestaurants);
-router.get('/:id', authenticate, RestaurantController.getRestaurant);
-
-// Admin only routes
-router.post('/', authenticate, requireAdmin, RestaurantController.createRestaurant);
-router.put('/:id', authenticate, requireAdmin, RestaurantController.updateRestaurant);
-router.delete('/:id', authenticate, requireAdmin, RestaurantController.deleteRestaurant);
-router.patch('/:id/toggle', authenticate, requireAdmin, RestaurantController.toggleRestaurantStatus);
+// Public routes - no authentication required for browsing
+router.get('/', RestaurantController.getAllRestaurants);
+router.get('/:id', RestaurantController.getRestaurantById);
+router.get('/:id/menu', getMenuValidation, RestaurantController.getRestaurantMenu);
 
 export default router;

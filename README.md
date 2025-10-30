@@ -1,229 +1,347 @@
-# Array Eats - Food Ordering System
+# Array Food Ordering System
 
-A complete food ordering system for Array employees with restaurant voting, menu ordering, and Talabat integration.
+A secure, real-time food ordering platform for Array Innovation employees.
 
 ## Features
 
-- 🔐 Secure authentication (@array.com emails only)
-- 🗳️ Daily restaurant voting system
-- 🍕 Menu browsing and ordering
-- 👥 Group order management
-- 📊 Admin dashboard
-- 🚚 Talabat API integration
-- 🐳 Fully Dockerized
+- 🔐 Domain-restricted authentication (@array.world)
+- 👥 Public and private group ordering
+- 💬 Real-time chat with WebSockets
+- 🛒 Collaborative cart management
+- 💳 Payment tracking and confirmation
+- 📱 Responsive mobile-first design
+- 🔒 Secure with JWT authentication and rate limiting
 
 ## Tech Stack
 
-- **Frontend**: React + TypeScript + Vite
-- **Backend**: Node.js + Express + TypeScript
-- **Database**: PostgreSQL
-- **Containerization**: Docker + Docker Compose
-- **Web Server**: Nginx
+**Frontend:**
+- React 18 + TypeScript
+- Vite
+- Tailwind CSS
+- Zustand (state management)
+- Socket.IO Client
+- React Router v6
+
+**Backend:**
+- Node.js + Express
+- TypeScript
+- Prisma ORM
+- PostgreSQL
+- Socket.IO
+- JWT Authentication
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker Desktop installed
-- Docker Compose installed
+- Node.js 20+
+- Docker & Docker Compose
+- PostgreSQL 15 (or use Docker)
 
-### 1. Clone and Setup
+### Installation
 
+1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd array-eats
+cd array-food-ordering
 ```
 
-### 2. Configure Environment
-
+2. Set up environment variables:
 ```bash
-cp .env.example .env
+# Backend
+cp backend/.env.example backend/.env
+# Edit backend/.env with your configuration
+
+# Frontend
+cp frontend/.env.example frontend/.env
+# Edit frontend/.env with your configuration
 ```
 
-Edit `.env` and add your email credentials:
-```env
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASSWORD=your_app_password
-TALABAT_API_KEY=your_key_if_available
-```
-
-### 3. Start the Application
-
+3. Start with Docker Compose:
 ```bash
 docker-compose up -d
 ```
 
-This will start:
-- PostgreSQL database on port 5432
-- Backend API on port 3000
-- Frontend web app on port 3001
-
-### 4. Access the Application
-
-- **Web App**: http://localhost:3001
-- **API**: http://localhost:3000/api
-- **Health Check**: http://localhost:3000/health
-
-### 5. Create Admin User
-
-First, register a user through the web interface, then promote to admin:
+Or run locally:
 
 ```bash
-# Connect to database
-docker exec -it array-eats-db psql -U postgres -d array_eats
+# Install dependencies
+cd backend && npm install
+cd ../frontend && npm install
 
-# Promote user to admin
-UPDATE users SET role = 'admin' WHERE email = 'your_email@array.com';
+# Start PostgreSQL (if not using Docker)
+# Update DATABASE_URL in backend/.env
+
+# Run database migrations
+cd backend
+npm run prisma:migrate
+npm run prisma:seed
+
+# Start backend (in backend directory)
+npm run dev
+
+# Start frontend (in frontend directory)
+cd ../frontend
+npm run dev
 ```
+
+4. Access the application:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:4000
 
 ## Development
 
-### Run in Development Mode
+### Backend
 
 ```bash
-# Backend
 cd backend
-npm install
+
+# Run in development mode
 npm run dev
 
-# Frontend
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Lint code
+npm run lint
+
+# Format code
+npm run format
+
+# Generate Prisma client
+npm run prisma:generate
+
+# Create migration
+npm run prisma:migrate
+
+# Seed database
+npm run prisma:seed
+```
+
+### Frontend
+
+```bash
 cd frontend
-npm install
+
+# Run in development mode
 npm run dev
-```
 
-### View Logs
+# Build for production
+npm run build
 
-```bash
-# All services
-docker-compose logs -f
+# Preview production build
+npm run preview
 
-# Specific service
-docker-compose logs -f backend
-docker-compose logs -f frontend
-docker-compose logs -f postgres
-```
+# Run tests
+npm test
 
-### Stop Services
+# Run E2E tests
+npm run test:e2e
 
-```bash
-docker-compose down
-```
+# Lint code
+npm run lint
 
-### Reset Database
-
-```bash
-docker-compose down -v
-docker-compose up -d
+# Format code
+npm run format
 ```
 
 ## Project Structure
 
 ```
-array-eats/
-├── backend/                 # Node.js API
+array-food-ordering/
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma
+│   │   └── seed.ts
 │   ├── src/
-│   │   ├── controllers/    # Route controllers
-│   │   ├── services/       # Business logic
-│   │   ├── models/         # Database models
-│   │   ├── routes/         # API routes
-│   │   ├── middleware/     # Express middleware
-│   │   ├── database/       # Migrations
-│   │   └── config/         # Configuration
-│   ├── Dockerfile
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   ├── utils/
+│   │   ├── websocket/
+│   │   └── server.ts
+│   ├── tests/
 │   └── package.json
-├── frontend/               # React web app
+├── frontend/
+│   ├── public/
 │   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── pages/         # Page components
-│   │   ├── services/      # API client
-│   │   ├── store/         # State management
-│   │   └── types/         # TypeScript types
-│   ├── Dockerfile
-│   ├── nginx.conf
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   ├── store/
+│   │   ├── types/
+│   │   ├── utils/
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── tests/
 │   └── package.json
-├── docker-compose.yml     # Docker orchestration
+├── docker-compose.yml
 └── README.md
 ```
 
 ## API Documentation
 
-See [backend/API_DOCUMENTATION.md](backend/API_DOCUMENTATION.md) for complete API reference.
+### Authentication Endpoints
 
-## Talabat Integration
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login user
+- `POST /api/auth/forgot-password` - Request password reset
+- `POST /api/auth/reset-password` - Reset password with token
+- `GET /api/auth/me` - Get current user
 
-See [backend/TALABAT_INTEGRATION.md](backend/TALABAT_INTEGRATION.md) for Talabat setup guide.
+### Group Endpoints
 
-## Daily Workflow
+- `GET /api/groups` - Get all groups (with filters)
+- `POST /api/groups` - Create new group
+- `GET /api/groups/:id` - Get group details
+- `POST /api/groups/:id/join` - Join group
+- `DELETE /api/groups/:id` - Delete group (owner only)
 
-1. **Morning (Admin)**
-   - Set available restaurants for the day
-   - Open voting period
+### Restaurant & Menu Endpoints
 
-2. **Voting Period (9 AM - 11 AM)**
-   - Employees vote for their preferred restaurant
-   - System determines winner
+- `GET /api/restaurants` - Get all restaurants
+- `GET /api/restaurants/:id/menu` - Get restaurant menu
 
-3. **Ordering Period (After 11 AM)**
-   - Employees browse menu and place orders
-   - View group order summary
+### Cart Endpoints
 
-4. **Order Placement (Admin)**
-   - Export orders or place through Talabat
-   - Track delivery
+- `GET /api/groups/:groupId/cart` - Get cart items
+- `POST /api/groups/:groupId/cart` - Add item to cart
+- `DELETE /api/cart-items/:id` - Delete cart item
 
-## Troubleshooting
+### Payment Endpoints
 
-### Cannot connect to database
+- `GET /api/groups/:groupId/payments` - Get payment statuses
+- `PUT /api/groups/:groupId/payments/:userId` - Update payment status
+
+### Chat Endpoints
+
+- `GET /api/groups/:groupId/messages` - Get chat messages
+
+## WebSocket Events
+
+### Client → Server
+
+- `join-group` - Join group room
+- `leave-group` - Leave group room
+- `send-message` - Send chat message
+- `typing-start` - Start typing indicator
+- `typing-stop` - Stop typing indicator
+
+### Server → Client
+
+- `message-received` - New chat message
+- `user-typing` - User is typing
+- `user-stopped-typing` - User stopped typing
+- `cart-updated` - Cart state changed
+- `group-closed` - Group duration expired
+- `payment-updated` - Payment status changed
+- `group-deleted` - Group was deleted
+
+## Testing
+
+### Backend Tests
+
 ```bash
-docker-compose restart postgres
-docker-compose logs postgres
+cd backend
+npm test                 # Run all tests
+npm run test:watch       # Run tests in watch mode
+npm run test:coverage    # Run tests with coverage
 ```
 
-### Backend not starting
+### Frontend Tests
+
 ```bash
-docker-compose logs backend
-# Check if migrations ran successfully
+cd frontend
+npm test                 # Run unit tests
+npm run test:e2e         # Run E2E tests with Playwright
 ```
 
-### Frontend not loading
+## Deployment
+
+### Using Docker Compose
+
 ```bash
-docker-compose logs frontend
-# Check nginx configuration
+# Build and start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Stop and remove volumes
+docker-compose down -v
 ```
 
-### Port already in use
+### Manual Deployment
+
+1. Build backend:
 ```bash
-# Change ports in docker-compose.yml
-# Or stop conflicting services
+cd backend
+npm run build
 ```
 
-## Production Deployment
+2. Build frontend:
+```bash
+cd frontend
+npm run build
+```
 
-### Security Checklist
+3. Set production environment variables
+4. Run database migrations
+5. Start services
 
-- [ ] Change all default passwords
-- [ ] Set strong JWT secrets
-- [ ] Configure HTTPS/SSL
-- [ ] Set up firewall rules
-- [ ] Enable database backups
-- [ ] Configure email service
-- [ ] Set up monitoring
-- [ ] Review CORS settings
+## Environment Variables
 
-### Environment Variables
+### Backend
 
-Update production values in docker-compose.yml:
-- JWT_SECRET
-- JWT_REFRESH_SECRET
-- Database credentials
-- Email configuration
-- Talabat API keys
+See `backend/.env.example` for all available variables.
 
-## Support
+Key variables:
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET` - Secret key for JWT tokens
+- `NODE_ENV` - Environment (development/production)
+- `PORT` - Server port (default: 4000)
+- `EMAIL_*` - Email configuration for password reset
 
-For issues or questions, contact the development team.
+### Frontend
+
+See `frontend/.env.example` for all available variables.
+
+Key variables:
+- `VITE_API_URL` - Backend API URL
+- `VITE_WS_URL` - WebSocket server URL
+
+## Security
+
+- JWT authentication with HTTP-only cookies
+- Password hashing with bcrypt (12 rounds)
+- Rate limiting on authentication endpoints
+- Input validation and sanitization
+- XSS prevention in chat messages
+- CSRF protection
+- Secure headers with Helmet
+- Domain-restricted registration (@array.world)
+
+## Contributing
+
+1. Create a feature branch
+2. Make your changes
+3. Write/update tests
+4. Run linting and formatting
+5. Submit a pull request
 
 ## License
 
-Internal use only - Array Company
+MIT License - see LICENSE file for details
+
+## Support
+
+For issues and questions, please contact the Array Innovation development team.
