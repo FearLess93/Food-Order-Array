@@ -35,9 +35,18 @@ export interface Group {
   maxMembers?: number;
   owner: User;
   restaurant: Restaurant;
+  members: GroupMember[];
   _count: {
     members: number;
   };
+}
+
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  joinedAt: string;
+  user: User;
 }
 
 export interface CartItem {
@@ -49,13 +58,12 @@ export interface CartItem {
   menuItem: MenuItem;
 }
 
-export interface Message {
+export interface Cart {
   id: string;
   groupId: string;
   userId: string;
-  text: string;
-  createdAt: string;
   user: User;
+  items: CartItem[];
 }
 
 export interface Payment {

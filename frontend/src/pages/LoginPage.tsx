@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
 
@@ -32,7 +33,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Array Food Ordering</h1>
           <p className="text-gray-600">Sign in to your account</p>
@@ -78,17 +79,20 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
         <div className="mt-6 text-center space-y-2">
-          <Link to="/register" className="block text-red-600 hover:text-red-700 font-medium">
-            Don't have an account? Register
-          </Link>
-          <Link to="/forgot-password" className="block text-gray-600 hover:text-gray-700 text-sm">
+          <p className="text-sm text-gray-600">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-red-600 hover:text-red-700 font-medium">
+              Register
+            </Link>
+          </p>
+          <Link to="/forgot-password" className="text-sm text-gray-500 hover:text-gray-700">
             Forgot password?
           </Link>
         </div>
